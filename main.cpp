@@ -5,14 +5,27 @@
 struct Settings {
     int dim;
     double epsilon;
-    double yStartTime;
-    double yEndTime;
-    double xStartTime;
-    double xEndTime;
+    double yStart;
+    double yEnd;
+    double xStart;
+    double xEnd;
+    int vectSize;
 
 };
 
-double funct1(double x, double y) {
+double fy1(double y) {
+
+}
+
+double fy2(double y) {
+
+}
+
+double fx1(double x) {
+
+}
+
+double fx2(double y) {
 
 }
 
@@ -22,28 +35,37 @@ int main(int argc, char** argv) {
 
     Settings settings;
     settings.dim = 1000 + 2;  // 2 - boundaries
+    settings.vectSize = settings.dim * settings.dim;
     settings.epsilon = 1e-3;
 
-    settings.xStartTime = 0;
-    settings.xEndTime = 1;
+    settings.xStart = 0;
+    settings.xEnd = 1;
 
-    settings.yStartTime = 0;
-    settings.yEndTime = 1;
+    settings.yStart = 0;
+    settings.yEnd= 1;
 
 
     double time_S, time_E;
     double *vect;
-    vect = new double[settings.dim * settings.dim];
+    vect = new double[settings.vectSize];
 
-    for (int k = 0; k < settings.dim * settings.dim; ++k) {
+    for (int k = 0; k < settings.vectSize; ++k) {
         vect[k] = 0;
     }
 
-    // File vector?
-    for (int i = 1; i < settings.dim - 1; ++i) {
-        for (int j = 1; j < settings.dim - 1; ++j) {
-            vect[settings.dim * i + j] = 0;
-        }
+    // boundaries fill
+    double h = fabs(settings.xEnd - settings.xStart)/ (settings.vectSize - 1);
+    double xPos = settings.xStart;
+    double yPos = settings.yStart;
+    for (int i = 0; i < settings.vectSize; i++) {
+        vect[i*settings.vectSize] = fx1(xPos);
+        vect[i] = fy1(yPos);
+
+        vect[i * settings.vectSize + settings.vectSize - 1] = fx2(xPos);
+        vect[(settings.vectSize - 1) * settings.vectSize + i] = fy2(yPos);
+
+        xPos += h;
+        yPos += h;
     }
 
     int stepCounter = 0;
