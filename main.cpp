@@ -14,19 +14,19 @@ struct Settings {
 };
 
 double fy1(double y) {
-
+    return sin(M_PI * y);
 }
 
 double fy2(double y) {
-
+    return sin(M_PI * y) + y;
 }
 
 double fx1(double x) {
-
+    return 0;
 }
 
-double fx2(double y) {
-
+double fx2(double x) {
+    return 0;
 }
 
 int main(int argc, char** argv) {
@@ -34,9 +34,9 @@ int main(int argc, char** argv) {
     const int NUM_THREAD = 4;
 
     Settings settings;
-    settings.dim = 1000 + 2;  // 2 - boundaries
+    settings.dim = 10000 + 2;  // 2 - boundaries
     settings.vectSize = settings.dim * settings.dim;
-    settings.epsilon = 1e-3;
+    settings.epsilon = 1e-4;
 
     settings.xStart = 0;
     settings.xEnd = 1;
@@ -57,12 +57,12 @@ int main(int argc, char** argv) {
     double h = fabs(settings.xEnd - settings.xStart)/ (settings.vectSize - 1);
     double xPos = settings.xStart;
     double yPos = settings.yStart;
-    for (int i = 0; i < settings.vectSize; i++) {
-        vect[i*settings.vectSize] = fx1(xPos);
+    for (int i = 0; i < settings.dim; i++) {
+        vect[i * settings.dim] = fx1(xPos);
         vect[i] = fy1(yPos);
 
-        vect[i * settings.vectSize + settings.vectSize - 1] = fx2(xPos);
-        vect[(settings.vectSize - 1) * settings.vectSize + i] = fy2(yPos);
+        vect[i * settings.dim + settings.dim - 1] = fx2(xPos);
+        vect[(settings.dim - 1) * settings.dim + i] = fy2(yPos);
 
         xPos += h;
         yPos += h;
@@ -108,7 +108,15 @@ int main(int argc, char** argv) {
         ++stepCounter;
     } while ( globChange > settings.epsilon);
 
+
     time_E = omp_get_wtime();
 
+    printf("Proc count:\t %d\n", NUM_THREAD);
+    printf("Epsilon:\t %lf\n", settings.epsilon);
+    printf("Dim size:\t %d\n", settings.dim);
+    printf("Step calc:\t %d\n", stepCounter);
     printf("Run time:\t %.15lf\n", time_E-time_S);
+
+
+    return 0;
 }
