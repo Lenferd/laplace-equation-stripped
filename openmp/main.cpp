@@ -2,6 +2,8 @@
 #include "omp.h"
 #include <cmath>
 
+using std::string;
+
 struct Settings {
     int dim;
     double epsilon;
@@ -31,7 +33,7 @@ double fx2(double x) {
 
 int main(int argc, char** argv) {
 
-    const int NUM_THREAD = 4;
+    const int NUM_THREAD = 2;
 
     Settings settings;
     settings.dim = 10000 + 2;  // 2 - boundaries
@@ -80,19 +82,27 @@ int main(int argc, char** argv) {
     omp_lock_t globChangeLock;
     omp_init_lock(&globChangeLock);
 
+    omp_lock_t *rowLock = new omp_lock_t[settings.dim];
+    for (int l = 0; l < settings.dim; ++l) {
+        omp_init_lock(&rowLock[l]);
+    }
     time_S = omp_get_wtime();
 
     do {
         globChange = 0;
-
         #pragma omp parallel for shared(vect, settings, globChange) private(tempPrevVal, tempChange, locChange)
         for (int j = 1; j < settings.dim - 1; ++j) {
             locChange = 0;
+
+            omp_set_lock(&rowLock[j+1]);
+            omp_set_lock(&rowLock[j]);
+            omp_set_lock(&rowLock[j-1]);
+
             for (int i = 1; i < settings.dim - 1; ++i) {
 
                 tempPrevVal = vect[i * settings.dim + j];
                 vect[i * settings.dim + j] = 0.25 * (vect[i * settings.dim + j + 1] + vect[i * settings.dim + j - 1] +
-                                                    vect[(i + 1) * settings.dim + j + 1] + vect[(i + 1) * settings.dim + j - 1]);
+                                                    vect[(i + 1) * settings.dim + j] + vect[(i - 1) * settings.dim + j]);
                 tempChange = fabs(vect[settings.dim * i + j] - tempPrevVal);
                 if (locChange < tempChange) {
                     locChange = tempChange;
@@ -104,12 +114,28 @@ int main(int argc, char** argv) {
                 globChange = locChange;
             }
             omp_unset_lock(&globChangeLock);
+
+            omp_unset_lock(&rowLock[j-1]);
+            omp_unset_lock(&rowLock[j]);
+            omp_unset_lock(&rowLock[j+1]);
         }
         ++stepCounter;
     } while ( globChange > settings.epsilon);
 
 
     time_E = omp_get_wtime();
+//
+//    string filename = "../../result/result_openmp.txt";
+//    FILE *fp;
+//    fp = fopen(filename.c_str(), "w");
+
+//    for (int i = 1; i < settings.dim + 1; i++) {
+//        for (int j = 1; j < settings.dim + 1; j++)
+//            fprintf(fp, "%.15le ", vect[i*(settings.dim + 2) + j]);
+//        fprintf(fp, "\n");
+//    }
+//
+//    fclose(fp);
 
     printf("Proc count:\t %d\n", NUM_THREAD);
     printf("Epsilon:\t %lf\n", settings.epsilon);
