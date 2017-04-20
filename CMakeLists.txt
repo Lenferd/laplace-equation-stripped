@@ -10,5 +10,5 @@ if(OPENMP_FOUND)
 endif()
 
 
-add_subdirectory(openmp)
-
+#add_subdirectory(openmp)
+add_subdirectory(tbb)
