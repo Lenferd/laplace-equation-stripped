@@ -1,6 +1,6 @@
 laplace-equation
 
-## Results ##
+### Results OpenMP ###
 Proc count:	 4  
 Epsilon:	 0.000100  
 Dim size:	 10002  
@@ -31,4 +31,18 @@ Epsilon:	 0.000100
 Dim size:	 10002  
 Step calc:	 4  
 Run time:	 2.077721588000713  
+
+### TBB Result ###
+
+Proc count:	 2  
+Epsilon:	 0.000100  
+Dim size:	 10002  
+Step calc:	 2  
+Run time:	 2.665062177000000  
+
+Proc count:	 2  
+Epsilon:	 0.000100  
+Dim size:	 1002  
+Step calc:	 12  
+Run time:	 0.264044511000000  
 
