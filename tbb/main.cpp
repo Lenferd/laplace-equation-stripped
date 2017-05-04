@@ -1,6 +1,9 @@
 #include <iostream>
 #include <cmath>
-#include <tbb/tbb.h>
+#include "tbb/task_scheduler_init.h"
+#include "tbb/parallel_for.h"
+#include "tbb/blocked_range.h"
+#include "tbb/tick_count.h"
 
 using std::string;
 
@@ -16,7 +19,7 @@ struct Settings {
 };
 
 double fy1(double y) {
-    return sin(M_PI * y);
+    return exp(sin(M_PI * y));
 }
 
 double fy2(double y) {
@@ -33,18 +36,23 @@ double fx2(double x) {
 
 int main(int argc, char** argv) {
 
-    const int NUM_THREAD = 2;
+    tbb::task_scheduler_init init(2);
 
+    FILE *infile = fopen("../../initial/settings.ini", "r");
+
+    if (infile == NULL) {
+        std::cout << "File open error" << std::endl;
+        exit(-1);
+    }
     Settings settings;
-    settings.dim = 10000 + 2;  // 2 - boundaries
+
+    fscanf(infile, "DIM=%d\n", &settings.dim);
+    fscanf(infile, "EPS=%lf\n", &settings.epsilon);
+    fscanf(infile, "XSTART=%lf\n", &settings.xStart);
+    fscanf(infile, "XEND=%lf\n", &settings.xEnd);
+    fscanf(infile, "YSTART=%lf\n", &settings.yStart);
+    fscanf(infile, "YEND=%lf\n", &settings.yEnd);
     settings.vectSize = settings.dim * settings.dim;
-    settings.epsilon = 1e-4;
-
-    settings.xStart = 0;
-    settings.xEnd = 1;
-
-    settings.yStart = 0;
-    settings.yEnd= 1;
 
 
     tbb::tick_count t_start, t_finish;
@@ -69,6 +77,16 @@ int main(int argc, char** argv) {
 
         xPos += h;
         yPos += h;
+    }
+
+    string filename = "../../result/result_tbb_original.txt";
+    FILE *fp;
+    fp = fopen(filename.c_str(), "w");
+//
+    for (int i = 0; i < settings.dim; i++) {
+        for (int j = 0; j < settings.dim; j++)
+            fprintf(fp, "%.15le ", vect[i*(settings.dim) + j]);
+        fprintf(fp, "\n");
     }
 
     int stepCounter = 0;
@@ -103,7 +121,7 @@ int main(int argc, char** argv) {
                                       }
                                   }
                               }
-                          }, tbb::static_partitioner());
+                          }, tbb::simple_partitioner());
 
         ++stepCounter;
 
@@ -112,13 +130,24 @@ int main(int argc, char** argv) {
                 glob_change = loc_Change[l];
             }
         }
-        std::cout << glob_change << std::endl;
+//        std::cout << glob_change << std::endl;
     } while ( glob_change > settings.epsilon);
 
     t_finish = tbb::tick_count::now();
 
+    string filename2 = "../../result/result_tbb.txt";
+    FILE *fp2;
+    fp2 = fopen(filename2.c_str(), "w");
 
-    printf("Proc count:\t %d\n", NUM_THREAD);
+    for (int i = 0; i < settings.dim; i++) {
+        for (int j = 0; j < settings.dim; j++)
+            fprintf(fp2, "%.15le ", vect[i * settings.dim + j]);
+        fprintf(fp2, "\n");
+    }
+
+    fclose(fp2);
+
+//    printf("Proc count:\t %d\n", );
     printf("Epsilon:\t %lf\n", settings.epsilon);
     printf("Dim size:\t %d\n", settings.dim);
     printf("Step calc:\t %d\n", stepCounter);
