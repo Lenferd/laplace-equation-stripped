@@ -5,50 +5,57 @@ import numpy as np
 from matplotlib import cm
 import math
 import os
+import sys
 
-def build_3D_function(ax, title, X, Y, Z, expZ, stride):
-	ax.plot_surface(X, Y, Z, alpha=0.6, linewidth=0.9, edgecolors='g',
-		rstride=stride, cstride=stride, antialiased=True, shade=False, cmap=cm.coolwarm)
 
-	ax.plot_surface(X, Y, expZ, alpha=0.1,
-					rstride=stride, cstride=stride, antialiased=True, shade=False)
+def build_3D_function(ax, title, X, Y, Z, stride):
+    ax.plot_surface(X, Y, Z, alpha=0.6, linewidth=0.9, edgecolors='g',
+                    rstride=stride, cstride=stride, antialiased=True, shade=False, cmap=cm.coolwarm)
 
-	plt.title(title)
+    plt.title(title)
 
 
 def main():
-	pathSetting = os.path.join(os.pardir, "initial", "setting.ini")
-	with open(pathSetting) as file:
-		setting = {line.split('=')[0] : float(line.split('=')[1]) for line in file}
+    if len(sys.argv) < 3:
+        print("Not enough arguments")
+        exit(-1)
+    else:
+        file1 = sys.argv[1]
+        file2 = sys.argv[2]
 
-	N = int(setting['DIM'])
+    path_setting = os.path.join(os.pardir, "initial", "settings.ini")
+    with open(path_setting) as file:
+        setting = {line.split('=')[0]: float(line.split('=')[1]) for line in file}
 
-	XSTART = setting['XSTART']
-	XEND = setting['XEND']
-	YSTART = setting['YSTART']
-	YEND = setting['YEND']
+    N = int(setting['DIM'])
 
-	X = np.linspace(XSTART, XEND, N, dtype = float)
-	Y = np.linspace (YSTART, YEND, N, dtype = float)
-	X, Y = np.meshgrid(X, Y)
+    XSTART = setting['XSTART']
+    XEND = setting['XEND']
+    YSTART = setting['YSTART']
+    YEND = setting['YEND']
 
-	fig = pylab.figure('PLOTS')
+    X = np.linspace(XSTART, XEND, N, dtype=float)
+    Y = np.linspace(YSTART, YEND, N, dtype=float)
+    X, Y = np.meshgrid(X, Y)
 
-	expected_Z = np.sin(math.pi*X)*np.exp(-math.pi*Y)
+    fig = pylab.figure('PLOTS')
 
-	ZS = np.loadtxt('SerialResult.txt', unpack=True)
-	ZP = np.loadtxt('ParallelResult.txt', unpack=True)
+    expected_Z = np.sin(math.pi*X)*np.exp(-math.pi*Y)
 
-	stride = N // 20
-	print("размер шага равен {:d}".format(stride))
+    ZS = np.loadtxt(file1, unpack=True)
+    ZP = np.loadtxt(file2, unpack=True)
 
-	ax1 = fig.add_subplot(121, projection = '3d')
-	build_3D_function(ax1, 'SERIAL', X, Y, ZS, expected_Z, stride)
+    stride = N // 20
+    print("размер шага равен {:d}".format(stride))
 
-	ax2 = fig.add_subplot(122, projection = '3d')
-	build_3D_function(ax2, 'PARALLEL', X, Y, ZP, expected_Z, stride)
+    ax1 = fig.add_subplot(121, projection='3d')
+    build_3D_function(ax1, 'INIT', X, Y, ZS, stride)
 
-	plt.show()
+    ax2 = fig.add_subplot(122, projection='3d')
+    build_3D_function(ax2, 'RESULT', X, Y, ZP, stride)
+
+    plt.show()
+
 
 if __name__ == '__main__':
-	main()
+    main()

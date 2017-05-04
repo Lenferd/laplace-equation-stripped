@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include "omp.h"
 #include <cmath>
 
@@ -16,7 +17,7 @@ struct Settings {
 };
 
 double fy1(double y) {
-    return sin(M_PI * y);
+    return exp(sin(M_PI * y));
 }
 
 double fy2(double y) {
@@ -33,18 +34,24 @@ double fx2(double x) {
 
 int main(int argc, char** argv) {
 
-    const int NUM_THREAD = 2;
+    const int NUM_THREAD = 4;
 
+
+    FILE *infile = fopen("../../initial/settings.ini", "r");
+
+    if (infile == NULL) {
+        std::cout << "File open error" << std::endl;
+        exit(-1);
+    }
     Settings settings;
-    settings.dim = 10000 + 2;  // 2 - boundaries
+
+    fscanf(infile, "DIM=%d\n", &settings.dim);
+    fscanf(infile, "EPS=%lf\n", &settings.epsilon);
+    fscanf(infile, "XSTART=%lf\n", &settings.xStart);
+    fscanf(infile, "XEND=%lf\n", &settings.xEnd);
+    fscanf(infile, "YSTART=%lf\n", &settings.yStart);
+    fscanf(infile, "YEND=%lf\n", &settings.yEnd);
     settings.vectSize = settings.dim * settings.dim;
-    settings.epsilon = 1e-4;
-
-    settings.xStart = 0;
-    settings.xEnd = 1;
-
-    settings.yStart = 0;
-    settings.yEnd= 1;
 
 
     double time_S, time_E;
@@ -68,6 +75,17 @@ int main(int argc, char** argv) {
 
         xPos += h;
         yPos += h;
+    }
+
+
+    string filename = "../../result/result_openmp_original.txt";
+    FILE *fp;
+    fp = fopen(filename.c_str(), "w");
+//
+    for (int i = 0; i < settings.dim; i++) {
+        for (int j = 0; j < settings.dim; j++)
+            fprintf(fp, "%.15le ", vect[i*(settings.dim) + j]);
+        fprintf(fp, "\n");
     }
 
     int stepCounter = 0;
@@ -124,18 +142,18 @@ int main(int argc, char** argv) {
 
 
     time_E = omp_get_wtime();
-//
-//    string filename = "../../result/result_openmp.txt";
-//    FILE *fp;
-//    fp = fopen(filename.c_str(), "w");
 
-//    for (int i = 1; i < settings.dim + 1; i++) {
-//        for (int j = 1; j < settings.dim + 1; j++)
-//            fprintf(fp, "%.15le ", vect[i*(settings.dim + 2) + j]);
-//        fprintf(fp, "\n");
-//    }
+    string filename2 = "../../result/result_openmp.txt";
+    FILE *fp2;
+    fp2 = fopen(filename2.c_str(), "w");
 //
-//    fclose(fp);
+    for (int i = 0; i < settings.dim; i++) {
+        for (int j = 0; j < settings.dim; j++)
+            fprintf(fp2, "%.15le ", vect[i * settings.dim + j]);
+        fprintf(fp2, "\n");
+    }
+
+    fclose(fp2);
 
     printf("Proc count:\t %d\n", NUM_THREAD);
     printf("Epsilon:\t %lf\n", settings.epsilon);
