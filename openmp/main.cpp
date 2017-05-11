@@ -34,7 +34,7 @@ double fx2(double x) {
 
 int main(int argc, char** argv) {
 
-    const int NUM_THREAD = 4;
+    const int NUM_THREAD = 1;
 
 
     FILE *infile = fopen("../../initial/settings.ini", "r");

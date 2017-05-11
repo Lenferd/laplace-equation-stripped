@@ -36,7 +36,7 @@ double fx2(double x) {
 
 int main(int argc, char** argv) {
 
-    tbb::task_scheduler_init init(2);
+    tbb::task_scheduler_init init(4);
 
     FILE *infile = fopen("../../initial/settings.ini", "r");
 
