@@ -148,69 +148,99 @@ int main(int argc, char **argv) {
     do {
 //        std::cout << rankP << std::endl << std::flush;
 //         swap data
-        std::cout << "kek1" << std::endl;
-        if (sizeP == 1) {
-            std::cout << "kek2" << std::endl;
-            ;
-        } else if (rankP == ROOT) {
-            std::cout << "kek3 " << rankP << std::endl;
-            int offset = proc_row_size * proc_column_size - 1;
-            MPI_Send(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP + 1, 0, MPI_COMM_WORLD);
-            MPI_Recv(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP, 0, MPI_COMM_WORLD, &status);
-//            MPI_Sendrecv(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP + 1, 0,
-//                         proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP, 0, MPI_COMM_WORLD, &status);
-            std::cout << "kek32 " << rankP << std::endl;
-        } else if (rankP == sizeP - 1) {
-            std::cout << "kek4 " << rankP << std::endl;
-            MPI_Send(proc_vect, proc_row_size, MPI_DOUBLE, rankP - 1, 0, MPI_COMM_WORLD);
-            MPI_Recv(proc_vect, proc_row_size, MPI_DOUBLE, rankP, 0, MPI_COMM_WORLD, &status);
-//            MPI_Sendrecv(proc_vect, proc_row_size, MPI_DOUBLE, rankP - 1, 0,
-//                         proc_vect, proc_row_size, MPI_DOUBLE, rankP, 0, MPI_COMM_WORLD, &status);
-            std::cout << "kek42 " << rankP << std::endl;
-        } else {
-            std::cout << "kek5" << std::endl;
-            // first row
-            MPI_Sendrecv(proc_vect, proc_row_size, MPI_DOUBLE, rankP - 1, 0,
-                         proc_vect, proc_row_size, MPI_DOUBLE, rankP, 0, MPI_COMM_WORLD, &status);
-            // last row
-            int offset = proc_row_size * proc_column_size - 1;
-            MPI_Sendrecv(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP + 1, 0,
-                         proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP, 0, MPI_COMM_WORLD, &status);
+        int offset = 0;
+        int recv_offset = 0;
+        int dest = -1;
+        int source = rankP;
+
+//        if (sizeP == 1) {
+//            std::cout << "kek2" << std::endl;
+//            ;
+//        } else if (rankP == ROOT) {
+//            dest = rankP + 1;
+//            offset = proc_row_size * (proc_column_size - 1);
+//            recv_offset = 0;
+//        } else if (rankP == sizeP - 1) {
+//            dest = rankP - 1;
+//            offset = 0;
+//            recv_offset = proc_row_size * (proc_column_size - 1);
+////            std::cout << "kek4 " << rankP << std::endl;
+////            MPI_Send(proc_vect, proc_row_size, MPI_DOUBLE, rankP - 1, 0, MPI_COMM_WORLD);
+////            MPI_Recv(proc_vect, proc_row_size, MPI_DOUBLE, rankP, 0, MPI_COMM_WORLD, &status);
+////            MPI_Sendrecv(proc_vect, proc_row_size, MPI_DOUBLE, rankP - 1, 0,
+////                         proc_vect, proc_row_size, MPI_DOUBLE, rankP, 0, MPI_COMM_WORLD, &status);
+//            std::cout << "kek42 " << rankP << std::endl;
+//        } else {
+//            std::cout << "kek5" << std::endl;
+////            // first row
+////            MPI_Sendrecv(proc_vect, proc_row_size, MPI_DOUBLE, rankP - 1, 0,
+////                         proc_vect, proc_row_size, MPI_DOUBLE, rankP, 0, MPI_COMM_WORLD, &status);
+////            // last row
+////            int offset = proc_row_size * proc_column_size - 1;
+////            MPI_Sendrecv(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP + 1, 0,
+////                         proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP, 0, MPI_COMM_WORLD, &status);
+//        }
+        dest = (rankP + 1) % sizeP;
+        source = (rankP - 1 + sizeP) % sizeP;
+        std::cout << "kek a" << std::endl;
+//        std::cout << "proc_row_size: " << proc_row_size << std::endl;
+//        std::cout << dest << " " << source << std::endl;
+
+//        if (rankP == ROOT) {
+//            for (int k = 0; k < proc_column_size; ++k) {
+//                for (int i = 0; i < proc_row_size; ++i) {
+//                    std::cout << proc_vect[k * proc_row_size + i] << "  ";
+//                }
+//                std::cout << std::endl;
+//            }
+//        }
+        int num_test = 12;
+        if (rankP == ROOT) {
+            num_test = 23;
         }
-        std::cout << "kek" << std::endl;
+        std::cout << "dest: " << dest << " s  " << source << " r  " << rankP << std::endl;
+        MPI_Sendrecv_replace(&num_test, 1, MPI_INT, dest, 0, source, 0, MPI_COMM_WORLD, &status);
+
+        if (rankP == ROOT) {
+            std::cout << "num_test: " << num_test << std::endl;
+        }
+//        MPI_Sendrecv_replace(proc_vect, proc_row_size, MPI_DOUBLE, dest, 0,
+//                             source, 0, MPI_COMM_WORLD, &status);
+
+        std::cout << "kek e" << std::endl;
 
         procChange = 0;
 ////        #pragma omp parallel for shared(vect, settings, globChange) private(tempPrevVal, tempChange, locChange)
-        for (int j = 1; j < proc_column_size - 1; ++j) {    // rows
-            locChange = 0;
-//
-//            omp_set_lock(&rowLock[j+1]);
-//            omp_set_lock(&rowLock[j]);
-//            omp_set_lock(&rowLock[j-1]);
-//
-            for (int i = 1; i < proc_row_size - 1; ++i) {    // colms
-//
-                tempPrevVal = proc_vect[i * proc_row_size + j];
-                proc_vect[i * proc_row_size + j] = 0.25 * (proc_vect[i * proc_row_size + j + 1] +
-                                                          proc_vect[i * proc_row_size + j - 1] +
-                                                          proc_vect[(i + 1) * proc_row_size + j] +
-                                                          proc_vect[(i - 1) * proc_row_size + j]);
-                tempChange = fabs(vect[proc_row_size * i + j] - tempPrevVal);
-                if (locChange < tempChange) {
-                    locChange = tempChange;
-                }
-            }
-//
-//            omp_set_lock(&globChangeLock);
-            if (procChange < locChange) {
-                procChange = locChange;
-            }
-//            omp_unset_lock(&globChangeLock);
-//
-//            omp_unset_lock(&rowLock[j-1]);
-//            omp_unset_lock(&rowLock[j]);
-//            omp_unset_lock(&rowLock[j+1]);
-        }
+//        for (int j = 1; j < proc_column_size - 1; ++j) {    // rows
+//            locChange = 0;
+////
+////            omp_set_lock(&rowLock[j+1]);
+////            omp_set_lock(&rowLock[j]);
+////            omp_set_lock(&rowLock[j-1]);
+////
+//            for (int i = 1; i < proc_row_size - 1; ++i) {    // colms
+////
+//                tempPrevVal = proc_vect[i * proc_row_size + j];
+//                proc_vect[i * proc_row_size + j] = 0.25 * (proc_vect[i * proc_row_size + j + 1] +
+//                                                          proc_vect[i * proc_row_size + j - 1] +
+//                                                          proc_vect[(i + 1) * proc_row_size + j] +
+//                                                          proc_vect[(i - 1) * proc_row_size + j]);
+//                tempChange = fabs(vect[proc_row_size * i + j] - tempPrevVal);
+//                if (locChange < tempChange) {
+//                    locChange = tempChange;
+//                }
+//            }
+////
+////            omp_set_lock(&globChangeLock);
+//            if (procChange < locChange) {
+//                procChange = locChange;
+//            }
+////            omp_unset_lock(&globChangeLock);
+////
+////            omp_unset_lock(&rowLock[j-1]);
+////            omp_unset_lock(&rowLock[j]);
+////            omp_unset_lock(&rowLock[j+1]);
+//        }
         ++stepCounter;
         std::cout << "procChange: " << procChange << std::endl;
     } while ( procChange > settings.epsilon);
