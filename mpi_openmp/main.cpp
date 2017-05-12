@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rankP);
 
     Settings settings;
-    double *vect;
+    double *vect = new double[settings.vectSize];
     if (rankP == ROOT) {
         FILE *infile = fopen("../../initial/settings.ini", "r");
 
@@ -65,7 +65,6 @@ int main(int argc, char **argv) {
 
 
         double time_S, time_E;
-        vect = new double[settings.vectSize];
 
         for (int k = 0; k < settings.vectSize; ++k) {
             vect[k] = 0;
@@ -92,8 +91,9 @@ int main(int argc, char **argv) {
         fp = fopen(filename.c_str(), "w");
 //
         for (int i = 0; i < settings.dim; i++) {
-            for (int j = 0; j < settings.dim; j++)
+            for (int j = 0; j < settings.dim; j++) {
                 fprintf(fp, "%.15le ", vect[i * (settings.dim) + j]);
+            }
             fprintf(fp, "\n");
         }
     }
@@ -137,52 +137,51 @@ int main(int argc, char **argv) {
     sendcounts[0] = proc_full_size;
 
     for (int l = 1; l < sizeP; ++l) {
-        displs[l] = proc_full_size * l - proc_row_size;
+        displs[l] = proc_full_size * l - proc_row_size * 2;
         sendcounts[l] = proc_full_size;
     }
 
     MPI_Scatterv(vect, sendcounts, displs, MPI_DOUBLE,
                  proc_vect, proc_full_size, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
 
-
-//    omp_set_num_threads(NUM_THREAD);
-//    omp_lock_t globChangeLock;
-//    omp_init_lock(&globChangeLock);
-//
-//    omp_lock_t *rowLock = new omp_lock_t[settings.dim];
-//    for (int l = 0; l < settings.dim; ++l) {
-//        omp_init_lock(&rowLock[l]);
-//    }
-//    time_S = omp_get_wtime();
-
     std::cout << "proc_full_size: " << proc_full_size << std::endl;
     std::cout << "settings.VectSize: " << settings.vectSize << std::endl;
     std::cout << "row size: " << proc_row_size << std::endl;
     std::cout << "column size: " << proc_column_size << std::endl;
 
+    if (sizeP == 1) {
+        exit(0);
+    }
     do {
-        int dest = (rankP + 1) % sizeP;
-        int source = (rankP - 1 + sizeP) % sizeP;
+//        int dest = (rankP + 1) % sizeP;
+//        int source = (rankP - 1 + sizeP) % sizeP;
 
-        int offset = 0;
         if (rankP == ROOT) {
-            offset = proc_row_size * (proc_column_size - 2);
-        }
+            int offset = proc_full_size - proc_row_size * 2;    // send penult row
+            MPI_Send(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP + 1, 0, MPI_COMM_WORLD);
+            offset = proc_full_size - proc_row_size;        // get las row
+            MPI_Recv(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP + 1, 0, MPI_COMM_WORLD, &status);
+        } else if (rankP == sizeP - 1) {
+            int offset = proc_row_size;
+            MPI_Send(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP - 1, 0, MPI_COMM_WORLD);
+            MPI_Recv(proc_vect, proc_row_size, MPI_DOUBLE, rankP - 1, 0, MPI_COMM_WORLD, &status);
+        } else {
+            int offset = proc_full_size - proc_row_size * 2;    // send penult row
+            MPI_Send(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP + 1, 0, MPI_COMM_WORLD);
+            offset = proc_row_size;
+            MPI_Send(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP - 1, 0, MPI_COMM_WORLD);
 
-        MPI_Sendrecv_replace(proc_vect + offset, proc_row_size, MPI_DOUBLE, dest, 0,
-                             source, 0, MPI_COMM_WORLD, &status);
+            offset = proc_full_size - proc_row_size;        // get las row
+            MPI_Recv(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP + 1, 0, MPI_COMM_WORLD, &status);
+            MPI_Recv(proc_vect, proc_row_size, MPI_DOUBLE, rankP - 1, 0, MPI_COMM_WORLD, &status);
+        }
 
 //        std::cout << "kek e" << std::endl;
 
         procChange = 0;
-//        #pragma omp parallel for shared(vect, settings, globChange) private(tempPrevVal, tempChange, locChange)
         for (int j = 1; j < proc_column_size - 1; ++j) {    // rows
             locChange = 0;
-//
-//            omp_set_lock(&rowLock[j+1]);
-//            omp_set_lock(&rowLock[j]);
-//            omp_set_lock(&rowLock[j-1]);
-//
+
             for (int i = 1; i < proc_row_size - 1; ++i) {    // colms
 //
                 tempPrevVal = proc_vect[j * proc_row_size + i];
@@ -213,46 +212,60 @@ int main(int argc, char **argv) {
         ++stepCounter;
         std::cout << "procChange: " << procChange << std::endl;
         MPI_Reduce(&procChange, &globChange, 1, MPI_DOUBLE, MPI_MAX, ROOT, MPI_COMM_WORLD);
-        if (rankP == ROOT)
+
+        if (rankP == ROOT) {
             std::cout << "globChange: " << globChange << std::endl;
 //        std::cout << "===" << std::endl;
+        }
         MPI_Bcast(&globChange, 1, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
     } while (globChange > settings.epsilon);
 //
-
-    std::cout << "EXIT rankP: " << rankP << std::endl;
+    displs = new int[sizeP];
     int *recvcounts = new int[sizeP];
+
+    if (rankP == 1) {
+        for (int i = 0; i < proc_column_size; i++) {
+            for (int j = 0; j < proc_row_size; j++)
+                std::cout << proc_vect[i * proc_row_size + j] << " ";
+            std::cout << std::endl;
+        }
+    }
 
     displs[0] = 0;
     recvcounts[0] = proc_full_size;
 
     for (int l = 1; l < sizeP; ++l) {
-        displs[l] = proc_full_size;
-        sendcounts[l] = proc_full_size;
+        displs[l] = proc_full_size * l - proc_row_size * 2;
+        recvcounts[l] = proc_full_size;
     }
-    MPI_Gatherv(proc_vect, proc_full_size, MPI_DOUBLE, vect, recvcounts, displs, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
+
+    double *recv_vect = new double[proc_full_size * sizeP];
+//    MPI_Gather(proc_vect, proc_full_size, MPI_DOUBLE, vect, proc_full_size, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
+
+    MPI_Gatherv(proc_vect, proc_full_size, MPI_DOUBLE, recv_vect, recvcounts, displs, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
 //    MPI_Gatherv(proc_vect, sendcounts, displs, MPI_DOUBLE, vect, proc_full_size, MPI_DOUBLE, ROOT, MPI_COMM_WORLD)
 //
 //    time_E = omp_get_wtime();
     std::cout << "EXIT rankP: " << rankP << std::endl;
     if (rankP == ROOT) {
 
-    string filename2 = "../../result/result_mpi.txt";
-    FILE *fp2;
-    fp2 = fopen(filename2.c_str(), "w");
-//
-    for (int i = 0; i < settings.dim; i++) {
-        for (int j = 0; j < settings.dim; j++)
-            fprintf(fp2, "%.15le ", vect[i * settings.dim + j]);
-        fprintf(fp2, "\n");
-    }
+        string filename2 = "../../result/result_" + std::to_string(sizeP)+ "_mpi.txt";
+        FILE *fp2;
+        fp2 = fopen(filename2.c_str(), "w");
 
-    fclose(fp2);
 
-    printf("Proc count:\t %d\n", NUM_THREAD);
-    printf("Epsilon:\t %lf\n", settings.epsilon);
-    printf("Dim size:\t %d\n", settings.dim);
-    printf("Step calc:\t %d\n", stepCounter);
+        for (int i = 0; i < settings.dim; i++) {
+            for (int j = 0; j < settings.dim; j++)
+                fprintf(fp2, "%.15le ", recv_vect[i * settings.dim + j]);
+            fprintf(fp2, "\n");
+        }
+
+        fclose(fp2);
+
+        printf("Proc count:\t %d\n", NUM_THREAD);
+        printf("Epsilon:\t %lf\n", settings.epsilon);
+        printf("Dim size:\t %d\n", settings.dim);
+        printf("Step calc:\t %d\n", stepCounter);
 //    printf("Run time:\t %.15lf\n", time_E-time_S);
 
     }
