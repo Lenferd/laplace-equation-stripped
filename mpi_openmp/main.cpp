@@ -120,6 +120,8 @@ int main(int argc, char **argv) {
 
     int stepCounter = 0;
 
+    double startTime, endTime;
+
     double globChange;
     double procChange;
     double locChange;
@@ -149,14 +151,15 @@ int main(int argc, char **argv) {
     std::cout << "row size: " << proc_row_size << std::endl;
     std::cout << "column size: " << proc_column_size << std::endl;
 
-    if (sizeP == 1) {
-        exit(0);
-    }
+    startTime = MPI_Wtime();
+
     do {
 //        int dest = (rankP + 1) % sizeP;
 //        int source = (rankP - 1 + sizeP) % sizeP;
 
-        if (rankP == ROOT) {
+        if (sizeP == 1){
+            ;
+        } else if (rankP == ROOT) {
             int offset = proc_full_size - proc_row_size * 2;    // send penult row
             MPI_Send(proc_vect + offset, proc_row_size, MPI_DOUBLE, rankP + 1, 0, MPI_COMM_WORLD);
             offset = proc_full_size - proc_row_size;        // get las row
@@ -189,10 +192,6 @@ int main(int argc, char **argv) {
                                                            proc_vect[j * proc_row_size + i - 1] +
                                                            proc_vect[(j + 1) * proc_row_size + i] +
                                                            proc_vect[(j - 1) * proc_row_size + i]);
-//                if (j == 2 and i == 5) {
-//                    std::cout << "proc_vect[j * proc_row_size + i]: " << rankP << "   "
-//                              << proc_vect[j * proc_row_size + i] << std::endl;
-//                }
                 tempChange = fabs(proc_vect[proc_row_size * j + i] - tempPrevVal);
                 if (locChange < tempChange) {
                     locChange = tempChange;
@@ -210,26 +209,13 @@ int main(int argc, char **argv) {
 //            omp_unset_lock(&rowLock[j+1]);
         }
         ++stepCounter;
-        std::cout << "procChange: " << procChange << std::endl;
         MPI_Reduce(&procChange, &globChange, 1, MPI_DOUBLE, MPI_MAX, ROOT, MPI_COMM_WORLD);
 
-        if (rankP == ROOT) {
-            std::cout << "globChange: " << globChange << std::endl;
-//        std::cout << "===" << std::endl;
-        }
         MPI_Bcast(&globChange, 1, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
     } while (globChange > settings.epsilon);
 //
     displs = new int[sizeP];
     int *recvcounts = new int[sizeP];
-
-    if (rankP == 1) {
-        for (int i = 0; i < proc_column_size; i++) {
-            for (int j = 0; j < proc_row_size; j++)
-                std::cout << proc_vect[i * proc_row_size + j] << " ";
-            std::cout << std::endl;
-        }
-    }
 
     displs[0] = 0;
     recvcounts[0] = proc_full_size;
@@ -243,9 +229,9 @@ int main(int argc, char **argv) {
 //    MPI_Gather(proc_vect, proc_full_size, MPI_DOUBLE, vect, proc_full_size, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
 
     MPI_Gatherv(proc_vect, proc_full_size, MPI_DOUBLE, recv_vect, recvcounts, displs, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
-//    MPI_Gatherv(proc_vect, sendcounts, displs, MPI_DOUBLE, vect, proc_full_size, MPI_DOUBLE, ROOT, MPI_COMM_WORLD)
-//
-//    time_E = omp_get_wtime();
+
+    endTime = MPI_Wtime();
+
     std::cout << "EXIT rankP: " << rankP << std::endl;
     if (rankP == ROOT) {
 
@@ -266,7 +252,7 @@ int main(int argc, char **argv) {
         printf("Epsilon:\t %lf\n", settings.epsilon);
         printf("Dim size:\t %d\n", settings.dim);
         printf("Step calc:\t %d\n", stepCounter);
-//    printf("Run time:\t %.15lf\n", time_E-time_S);
+        printf("Run time %.15lf\n", endTime - startTime);
 
     }
     MPI_Finalize();
