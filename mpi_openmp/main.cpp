@@ -36,7 +36,11 @@ double fx2(double x) {
 
 int main(int argc, char **argv) {
 
-    const int NUM_THREAD = 1;
+    const int NUM_THREAD = 2;
+    int thread_size_set = NUM_THREAD;
+    if (argc > 1) {
+        thread_size_set = atoi(argv[1]);
+    }
 
     int sizeP, rankP;
     MPI_Status status;
@@ -46,9 +50,10 @@ int main(int argc, char **argv) {
     MPI_Comm_rank(MPI_COMM_WORLD, &rankP);
 
     Settings settings;
-    double *vect = new double[settings.vectSize];
+    double *vect;
+    vect = new double[100];
     if (rankP == ROOT) {
-        FILE *infile = fopen("../../initial/settings.ini", "r");
+        FILE *infile = fopen("../../../initial/settings.ini", "r");
 
         if (infile == NULL) {
             std::cout << "File open error" << std::endl;
@@ -63,6 +68,7 @@ int main(int argc, char **argv) {
         fscanf(infile, "YEND=%lf\n", &settings.yEnd);
         settings.vectSize = settings.dim * settings.dim;    // with +2 boundaries
 
+        vect = new double[settings.vectSize];
 
         double time_S, time_E;
 
@@ -86,7 +92,7 @@ int main(int argc, char **argv) {
         }
 
 
-        string filename = "../../result/result_mpi_original.txt";
+        string filename = "../../../result/result_mpi_original.txt";
         FILE *fp;
         fp = fopen(filename.c_str(), "w");
 //
@@ -146,12 +152,22 @@ int main(int argc, char **argv) {
     MPI_Scatterv(vect, sendcounts, displs, MPI_DOUBLE,
                  proc_vect, proc_full_size, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
 
-    std::cout << "proc_full_size: " << proc_full_size << std::endl;
-    std::cout << "settings.VectSize: " << settings.vectSize << std::endl;
-    std::cout << "row size: " << proc_row_size << std::endl;
-    std::cout << "column size: " << proc_column_size << std::endl;
+//    std::cout << "proc_full_size: " << proc_full_size << std::endl;
+//    std::cout << "settings.VectSize: " << settings.vectSize << std::endl;
+//    std::cout << "row size: " << proc_row_size << std::endl;
+//    std::cout << "column size: " << proc_column_size << std::endl;
 
     startTime = MPI_Wtime();
+
+
+    omp_set_num_threads(thread_size_set);
+    omp_lock_t globChangeLock;
+    omp_init_lock(&globChangeLock);
+
+//    omp_lock_t *rowLock = new omp_lock_t[settings.dim];
+//    for (int l = 0; l < settings.dim; ++l) {
+//        omp_init_lock(&rowLock[l]);
+//    }
 
     do {
 //        int dest = (rankP + 1) % sizeP;
@@ -182,8 +198,13 @@ int main(int argc, char **argv) {
 //        std::cout << "kek e" << std::endl;
 
         procChange = 0;
+        #pragma omp parallel for shared(proc_vect, settings, procChange) private(tempPrevVal, tempChange, locChange)
         for (int j = 1; j < proc_column_size - 1; ++j) {    // rows
             locChange = 0;
+
+//            omp_set_lock(&rowLock[j+1]);
+//            omp_set_lock(&rowLock[j]);
+//            omp_set_lock(&rowLock[j-1]);
 
             for (int i = 1; i < proc_row_size - 1; ++i) {    // colms
 //
@@ -198,11 +219,11 @@ int main(int argc, char **argv) {
                 }
             }
 //
-//            omp_set_lock(&globChangeLock);
+            omp_set_lock(&globChangeLock);
             if (procChange < locChange) {
                 procChange = locChange;
             }
-//            omp_unset_lock(&globChangeLock);
+            omp_unset_lock(&globChangeLock);
 //
 //            omp_unset_lock(&rowLock[j-1]);
 //            omp_unset_lock(&rowLock[j]);
@@ -235,7 +256,7 @@ int main(int argc, char **argv) {
     std::cout << "EXIT rankP: " << rankP << std::endl;
     if (rankP == ROOT) {
 
-        string filename2 = "../../result/result_" + std::to_string(sizeP)+ "_mpi.txt";
+        string filename2 = "../../../result/result_" + std::to_string(sizeP)+ "_mpi.txt";
         FILE *fp2;
         fp2 = fopen(filename2.c_str(), "w");
 
@@ -248,7 +269,8 @@ int main(int argc, char **argv) {
 
         fclose(fp2);
 
-        printf("Proc count:\t %d\n", NUM_THREAD);
+        printf("Thread count:\t %d\n", thread_size_set);
+        printf("Proc count:\t %d\n", sizeP);
         printf("Epsilon:\t %lf\n", settings.epsilon);
         printf("Dim size:\t %d\n", settings.dim);
         printf("Step calc:\t %d\n", stepCounter);

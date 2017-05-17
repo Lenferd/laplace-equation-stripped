@@ -36,9 +36,10 @@ double fx2(double x) {
 
 int main(int argc, char** argv) {
 
-    tbb::task_scheduler_init init(4);
 
-    FILE *infile = fopen("../../initial/settings.ini", "r");
+    tbb::task_scheduler_init init(1);
+
+    FILE *infile = fopen("../../../initial/settings.ini", "r");
 
     if (infile == NULL) {
         std::cout << "File open error" << std::endl;
@@ -79,7 +80,7 @@ int main(int argc, char** argv) {
         yPos += h;
     }
 
-    string filename = "../../result/result_tbb_original.txt";
+    string filename = "../../../result/result_tbb_original.txt";
     FILE *fp;
     fp = fopen(filename.c_str(), "w");
 //
@@ -135,7 +136,7 @@ int main(int argc, char** argv) {
 
     t_finish = tbb::tick_count::now();
 
-    string filename2 = "../../result/result_tbb.txt";
+    string filename2 = "../../../result/result_tbb.txt";
     FILE *fp2;
     fp2 = fopen(filename2.c_str(), "w");
 
