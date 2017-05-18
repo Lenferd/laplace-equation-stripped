@@ -106,7 +106,6 @@ int main(int argc, char **argv) {
         }
     }
 
-
     MPI_Bcast(&settings.vectSize, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
     MPI_Bcast(&settings.dim, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
     MPI_Bcast(&settings.epsilon, 1, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
@@ -182,7 +181,7 @@ int main(int argc, char **argv) {
     omp_init_lock(&globChangeLock);
 
     omp_lock_t *rowLock = new omp_lock_t[proc_column_size];
-    for (int l = 0; l < settings.dim; ++l) {
+    for (int l = 0; l < proc_column_size; ++l) {
         omp_init_lock(&rowLock[l]);
     }
 
@@ -219,9 +218,9 @@ int main(int argc, char **argv) {
         for (int j = 1; j < proc_column_size - 1; ++j) {    // rows
             locChange = 0;
 
-            //omp_set_lock(&rowLock[j+1]);
-            //omp_set_lock(&rowLock[j]);
-            //omp_set_lock(&rowLock[j-1]);
+            omp_set_lock(&rowLock[j+1]);
+            omp_set_lock(&rowLock[j]);
+            omp_set_lock(&rowLock[j-1]);
 
             for (int i = 1; i < proc_row_size - 1; ++i) {    // colms
 //
@@ -242,17 +241,17 @@ int main(int argc, char **argv) {
             }
             omp_unset_lock(&globChangeLock);
 //
-            //omp_unset_lock(&rowLock[j-1]);
-            //omp_unset_lock(&rowLock[j]);
-            //omp_unset_lock(&rowLock[j+1]);
+            omp_unset_lock(&rowLock[j-1]);
+            omp_unset_lock(&rowLock[j]);
+            omp_unset_lock(&rowLock[j+1]);
         }
         ++stepCounter;
         MPI_Reduce(&procChange, &globChange, 1, MPI_DOUBLE, MPI_MAX, ROOT, MPI_COMM_WORLD);
 
         MPI_Bcast(&globChange, 1, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
-        if (rankP == ROOT) {
-            std::cout << globChange << std::endl;
-        }
+//        if (rankP == ROOT) {
+//            std::cout << globChange << std::endl;
+//        }
     } while (globChange > settings.epsilon);
 //
     displs = new int[sizeP];
