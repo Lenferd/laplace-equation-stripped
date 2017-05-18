@@ -1,5 +1,7 @@
+#define _USE_MATH_DEFINES
 #include <iostream>
 #include <fstream>
+#include <string>
 #include <cmath>
 #include "mpi.h"
 #include "omp.h"
@@ -51,9 +53,9 @@ int main(int argc, char **argv) {
 
     Settings settings;
     double *vect;
-    vect = new double[100];
+    //vect = new double[100];
     if (rankP == ROOT) {
-        FILE *infile = fopen("../../../initial/settings.ini", "r");
+        FILE *infile = fopen("settings.ini", "r");
 
         if (infile == NULL) {
             std::cout << "File open error" << std::endl;
@@ -92,7 +94,7 @@ int main(int argc, char **argv) {
         }
 
 
-        string filename = "../../../result/result_mpi_original.txt";
+        string filename = "result_mpi_original.txt";
         FILE *fp;
         fp = fopen(filename.c_str(), "w");
 //
@@ -103,6 +105,7 @@ int main(int argc, char **argv) {
             fprintf(fp, "\n");
         }
     }
+
 
     MPI_Bcast(&settings.vectSize, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
     MPI_Bcast(&settings.dim, 1, MPI_INT, ROOT, MPI_COMM_WORLD);
@@ -118,10 +121,20 @@ int main(int argc, char **argv) {
         std::cout << "Wrong size" << std::endl;
         exit(-1);
     }
-    int proc_row_size = settings.dim;
-    int proc_column_size = settings.dim / sizeP + 2;
+    int proc_row_size;
+    int proc_column_size;
 
-    int proc_full_size = proc_row_size * proc_column_size;
+    int proc_full_size;
+
+    if (sizeP == 1) {
+        proc_full_size = settings.vectSize;
+        proc_row_size = settings.dim;
+        proc_column_size = settings.dim;
+    } else {
+        proc_row_size = settings.dim;
+        proc_column_size = settings.dim / sizeP + 2;
+        proc_full_size = proc_row_size * proc_column_size;
+    }
     double *proc_vect = new double[proc_full_size];
 
     int stepCounter = 0;
@@ -142,13 +155,17 @@ int main(int argc, char **argv) {
     int *sendcounts = new int[sizeP];
 
     displs[0] = 0;
-    sendcounts[0] = proc_full_size;
+    if (sizeP == 1) {
+        sendcounts[0] = settings.vectSize;
+    }
+    else {
+        sendcounts[0] = proc_full_size;
+    }
 
     for (int l = 1; l < sizeP; ++l) {
         displs[l] = proc_full_size * l - proc_row_size * 2;
         sendcounts[l] = proc_full_size;
     }
-
     MPI_Scatterv(vect, sendcounts, displs, MPI_DOUBLE,
                  proc_vect, proc_full_size, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
 
@@ -164,10 +181,10 @@ int main(int argc, char **argv) {
     omp_lock_t globChangeLock;
     omp_init_lock(&globChangeLock);
 
-//    omp_lock_t *rowLock = new omp_lock_t[settings.dim];
-//    for (int l = 0; l < settings.dim; ++l) {
-//        omp_init_lock(&rowLock[l]);
-//    }
+    omp_lock_t *rowLock = new omp_lock_t[proc_column_size];
+    for (int l = 0; l < settings.dim; ++l) {
+        omp_init_lock(&rowLock[l]);
+    }
 
     do {
 //        int dest = (rankP + 1) % sizeP;
@@ -202,9 +219,9 @@ int main(int argc, char **argv) {
         for (int j = 1; j < proc_column_size - 1; ++j) {    // rows
             locChange = 0;
 
-//            omp_set_lock(&rowLock[j+1]);
-//            omp_set_lock(&rowLock[j]);
-//            omp_set_lock(&rowLock[j-1]);
+            //omp_set_lock(&rowLock[j+1]);
+            //omp_set_lock(&rowLock[j]);
+            //omp_set_lock(&rowLock[j-1]);
 
             for (int i = 1; i < proc_row_size - 1; ++i) {    // colms
 //
@@ -225,14 +242,17 @@ int main(int argc, char **argv) {
             }
             omp_unset_lock(&globChangeLock);
 //
-//            omp_unset_lock(&rowLock[j-1]);
-//            omp_unset_lock(&rowLock[j]);
-//            omp_unset_lock(&rowLock[j+1]);
+            //omp_unset_lock(&rowLock[j-1]);
+            //omp_unset_lock(&rowLock[j]);
+            //omp_unset_lock(&rowLock[j+1]);
         }
         ++stepCounter;
         MPI_Reduce(&procChange, &globChange, 1, MPI_DOUBLE, MPI_MAX, ROOT, MPI_COMM_WORLD);
 
         MPI_Bcast(&globChange, 1, MPI_DOUBLE, ROOT, MPI_COMM_WORLD);
+        if (rankP == ROOT) {
+            std::cout << globChange << std::endl;
+        }
     } while (globChange > settings.epsilon);
 //
     displs = new int[sizeP];
@@ -256,7 +276,7 @@ int main(int argc, char **argv) {
     std::cout << "EXIT rankP: " << rankP << std::endl;
     if (rankP == ROOT) {
 
-        string filename2 = "../../../result/result_" + std::to_string(sizeP)+ "_mpi.txt";
+        string filename2 = "result_" + std::to_string(sizeP)+ "_mpi.txt";
         FILE *fp2;
         fp2 = fopen(filename2.c_str(), "w");
 
