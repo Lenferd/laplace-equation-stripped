@@ -38,18 +38,17 @@ double fx2(double x) {
 
 int main(int argc, char **argv) {
 
-    const int NUM_THREAD = 2;
-    int thread_size_set = NUM_THREAD;
-    if (argc > 1) {
-        thread_size_set = atoi(argv[1]);
-    }
-
+    MPI_Init(&argc, &argv);
     int sizeP, rankP;
     MPI_Status status;
-
-    MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &sizeP);
     MPI_Comm_rank(MPI_COMM_WORLD, &rankP);
+
+    const int NUM_THREAD = 1;
+    int thread_size_set = NUM_THREAD;
+    //if (argc > 1) {
+    //    thread_size_set = atoi(argv[1]);
+    //}
 
     Settings settings;
     double *vect;
